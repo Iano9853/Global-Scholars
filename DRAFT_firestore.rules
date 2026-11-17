@@ -1,0 +1,257 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidOnboardingMap(ob) {
+      return ob is map
+        && ob.keys().hasAll([
+          'passportCountry',
+          'residenceCountry',
+          'educationLanguage',
+          'degreeType',
+          'broadFields',
+          'majors',
+          'intakeWindow',
+          'completedEducation',
+          'gradeSystem',
+          'rawGrade',
+          'estimatedGpa4',
+          'standardizedTests',
+          'workStudyPreferences',
+          'budgetTier',
+          'targetCountries',
+          'hasDocsReady',
+          'onboardingCompleted'
+        ])
+        && ob.keys().hasOnly([
+          'passportCountry',
+          'residenceCountry',
+          'educationLanguage',
+          'degreeType',
+          'broadFields',
+          'majors',
+          'intakeWindow',
+          'completedEducation',
+          'gradeSystem',
+          'rawGrade',
+          'estimatedGpa4',
+          'standardizedTests',
+          'workStudyPreferences',
+          'budgetTier',
+          'targetCountries',
+          'hasDocsReady',
+          'onboardingCompleted'
+        ])
+        && ob.passportCountry is string && ob.passportCountry.size() <= 80
+        && ob.residenceCountry is string && ob.residenceCountry.size() <= 80
+        && ob.educationLanguage is string && ob.educationLanguage.size() <= 20
+        && ob.degreeType is string && ob.degreeType.size() <= 40
+        && ob.broadFields is list && ob.broadFields.size() <= 5
+        && (ob.broadFields.size() == 0 || ob.broadFields[0] is string)
+        && ob.majors is list && ob.majors.size() <= 3
+        && (ob.majors.size() == 0 || ob.majors[0] is string)
+        && ob.intakeWindow is string && ob.intakeWindow.size() <= 60
+        && ob.completedEducation is string && ob.completedEducation.size() <= 100
+        && ob.gradeSystem is string && ob.gradeSystem.size() <= 40
+        && ob.rawGrade is string && ob.rawGrade.size() <= 40
+        && ob.estimatedGpa4 is number && ob.estimatedGpa4 >= 0 && ob.estimatedGpa4 <= 4.0
+        && ob.standardizedTests is list && ob.standardizedTests.size() <= 6
+        && (ob.standardizedTests.size() == 0 || ob.standardizedTests[0] is string)
+        && ob.workStudyPreferences is list && ob.workStudyPreferences.size() <= 5
+        && (ob.workStudyPreferences.size() == 0 || ob.workStudyPreferences[0] is string)
+        && ob.budgetTier is string && ob.budgetTier.size() <= 80
+        && ob.targetCountries is list && ob.targetCountries.size() <= 12
+        && (ob.targetCountries.size() == 0 || ob.targetCountries[0] is string)
+        && ob.hasDocsReady is bool
+        && ob.onboardingCompleted is bool;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'authProvider', 'onboarding', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'name', 'email', 'authProvider', 'onboarding', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.authProvider in ['email', 'google']
+        && isValidOnboardingMap(data.onboarding)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSavedProgram(data, userId, programId) {
+      return data.keys().hasAll(['userId', 'programId', 'university', 'programTitle', 'deadline', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'programId', 'university', 'programTitle', 'deadline', 'createdAt'])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.programId is string && data.programId == programId && isValidId(data.programId)
+        && data.university is string && data.university.size() >= 1 && data.university.size() <= 160
+        && data.programTitle is string && data.programTitle.size() >= 1 && data.programTitle.size() <= 220
+        && data.deadline is string && data.deadline.size() <= 60
+        && data.createdAt is timestamp;
+    }
+
+    function isValidVaultDocument(data, userId) {
+      return data.keys().hasAll(['userId', 'title', 'category', 'status', 'notes', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'title', 'category', 'status', 'notes', 'fileName', 'fileSizeBytes', 'createdAt', 'updatedAt'])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.category in ['Identity', 'Academic', 'Financial', 'Language', 'Work Authorization']
+        && data.status in ['Ready', 'In Progress', 'Missing']
+        && data.notes is string && data.notes.size() <= 500
+        && (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 200))
+        && (!('fileSizeBytes' in data) || (data.fileSizeBytes is number && data.fileSizeBytes >= 0))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidApplicationSubmission(data, userId, programId) {
+      return data.keys().hasAll([
+          'userId',
+          'programId',
+          'university',
+          'programTitle',
+          'studentName',
+          'studentEmail',
+          'requirementsAcknowledged',
+          'status',
+          'emailDispatched',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'programId',
+          'university',
+          'programTitle',
+          'studentName',
+          'studentEmail',
+          'requirementsAcknowledged',
+          'status',
+          'emailDispatched',
+          'createdAt'
+        ])
+        && data.userId is string && data.userId == userId && isValidId(data.userId)
+        && data.programId is string && data.programId == programId && isValidId(data.programId)
+        && data.university is string && data.university.size() >= 1 && data.university.size() <= 160
+        && data.programTitle is string && data.programTitle.size() >= 1 && data.programTitle.size() <= 220
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 120
+        && data.studentEmail is string && data.studentEmail.size() >= 3 && data.studentEmail.size() <= 200
+        && data.requirementsAcknowledged is bool && data.requirementsAcknowledged == true
+        && data.status in ['Official Outreach Requested']
+        && data.emailDispatched is bool
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isVerifiedOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().authProvider == existing().authProvider
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'email', 'onboarding', 'updatedAt']);
+
+      match /savedPrograms/{programId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(programId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow list: if isVerifiedOwner(userId)
+          && resource.data.userId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(programId)
+          && isValidSavedProgram(incoming(), userId, programId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(programId);
+      }
+
+      match /vaultDocuments/{docId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow list: if isVerifiedOwner(userId)
+          && resource.data.userId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId)
+          && isValidVaultDocument(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId)
+          && isValidVaultDocument(incoming(), userId)
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'status', 'notes', 'fileName', 'fileSizeBytes', 'updatedAt'])
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId);
+      }
+
+      match /applications/{programId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(programId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow list: if isVerifiedOwner(userId)
+          && resource.data.userId == request.auth.uid;
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(programId)
+          && isValidApplicationSubmission(incoming(), userId, programId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(programId);
+      }
+    }
+  }
+}

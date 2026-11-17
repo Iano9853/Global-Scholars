@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated student profile and academic/work-study onboarding preferences.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "authProvider": {
+          "type": "string",
+          "enum": ["email", "google"]
+        },
+        "onboarding": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "name", "email", "authProvider", "onboarding", "createdAt", "updatedAt"]
+    },
+    "SavedProgram": {
+      "title": "SavedProgram",
+      "description": "A scholarship or work-study program bookmarked by a student in their tracker.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "programId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "university": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "programTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 220
+        },
+        "deadline": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "programId", "university", "programTitle", "deadline", "createdAt"]
+    },
+    "VaultDocument": {
+      "title": "VaultDocument",
+      "description": "An applicant document record explicitly created or attached by the student.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Identity", "Academic", "Financial", "Language", "Work Authorization"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Ready", "In Progress", "Missing"]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "fileName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "fileSizeBytes": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "title", "category", "status", "notes", "createdAt", "updatedAt"]
+    },
+    "ApplicationSubmission": {
+      "title": "ApplicationSubmission",
+      "description": "Confirmed school selection where the student acknowledged requirements and requested official admissions outreach.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "programId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "university": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "programTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 220
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "studentEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "requirementsAcknowledged": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Official Outreach Requested"]
+        },
+        "emailDispatched": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "programId",
+        "university",
+        "programTitle",
+        "studentName",
+        "studentEmail",
+        "requirementsAcknowledged",
+        "status",
+        "emailDispatched",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student profile and onboarding preferences owned strictly by userId."
+    },
+    "/users/{userId}/savedPrograms/{programId}": {
+      "schema": { "$ref": "#/entities/SavedProgram" },
+      "description": "Student's saved scholarship and work-study tracker entries."
+    },
+    "/users/{userId}/vaultDocuments/{docId}": {
+      "schema": { "$ref": "#/entities/VaultDocument" },
+      "description": "Student's personal Document Vault entries."
+    },
+    "/users/{userId}/applications/{programId}": {
+      "schema": { "$ref": "#/entities/ApplicationSubmission" },
+      "description": "Student's confirmed school selections with requirements acknowledgement and outreach status."
+    }
+  }
+}

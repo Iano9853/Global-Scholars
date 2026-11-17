@@ -1,0 +1,6 @@
+{
+  "name": "ScholarWork Global",
+  "description": "Find verified global scholarships, campus work-study jobs, and paid co-op programs open to international students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

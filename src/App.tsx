@@ -219,7 +219,7 @@ function AppContent() {
     if (
       !user ||
       !user.emailVerified ||
-      user.email.trim().toLowerCase() !== 'mulijosephine446@gmail.com' ||
+      !isCoordinatorEmail(user.email) ||
       !auth.currentUser
     ) {
       return;
@@ -239,6 +239,7 @@ function AppContent() {
         const raw = await resp.text();
         let data: {
           authorized?: boolean;
+          error?: string;
           students?: Array<
             import('./types/program').StudentPortalRecord & { portalPasswordHash: string }
           >;
@@ -248,14 +249,24 @@ function AppContent() {
         } catch {
           data = null;
         }
-        if (!active || !resp.ok || !data?.authorized || !Array.isArray(data.students)) return;
+        if (!active || !resp.ok || !data?.authorized || !Array.isArray(data.students)) {
+          return;
+        }
 
         for (const studentRecord of data.students) {
           if (!active) break;
           await upsertStudentPortalAsAdmin(studentRecord);
         }
-      } catch {
-        // Silent background sync — Coordinator Console handles manual sync status too
+        if (active && data.students.length > 0) {
+          showToast(
+            `Synced ${data.students.length} Student Portal record(s) to Firestore.`
+          );
+        }
+      } catch (err) {
+        if (active) {
+          const msg = err instanceof Error ? err.message : 'Unable to sync Student Portals to Firestore.';
+          showToast(`Coordinator Firestore sync failed: ${msg}`);
+        }
       }
     };
 

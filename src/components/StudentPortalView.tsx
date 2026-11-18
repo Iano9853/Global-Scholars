@@ -1309,9 +1309,295 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     );
   }
 
-  // STATE 2 (Default for signed-in users): Portal Sign-In Gate + Coordinator Admin Roster
+  // STATE 2 (Default for signed-in users): Coordinator Admin Roster (top if coordinator) + Portal Sign-In Gate
+  const coordinatorPanel = isCoordinator ? (
+    <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-7 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-[11.5px] font-mono uppercase tracking-wider text-[#B46900] font-semibold">
+            Coordinator Admin Console · Signed in as {user.email}
+          </div>
+          <h1 className="mt-0.5 font-display font-bold text-[20px] sm:text-[22px] text-[#0C2340] flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-[#0C2340]" />
+            <span>Provisioned Student Portals ({adminRoster.length})</span>
+          </h1>
+          <p className="mt-1 text-[13px] text-slate-600">
+            Click <strong>Sync to Firestore</strong> on any student below so they can sign in on both
+            this app and your deployed Cloudflare site, or click <strong>Preview Portal</strong> to inspect their portal directly.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowProvisionForm((prev) => !prev)}
+          className="px-3.5 py-2 rounded-md bg-[#0C2340] hover:bg-[#16365E] text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4" />
+          {showProvisionForm ? 'Close Form' : 'Provision Student Directly to Firestore'}
+        </button>
+      </div>
+
+      {showProvisionForm && (
+        <form
+          onSubmit={handleProvisionDirectToFirestore}
+          className="border border-slate-200 rounded-lg p-5 bg-[#F4F6F9] space-y-4"
+        >
+          <div className="text-[13px] font-semibold text-[#0C2340]">
+            Write Student Portal Directly to Firestore (Works on Cloudflare Pages &amp; AI Studio)
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-[13px]">
+            <input
+              type="email"
+              required
+              placeholder="Student Sign-Up Email *"
+              value={provForm.studentEmail}
+              onChange={(e) => setProvForm((p) => ({ ...p, studentEmail: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Full Name *"
+              value={provForm.studentName}
+              onChange={(e) => setProvForm((p) => ({ ...p, studentName: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Student ID (e.g. BC-2026-0806) *"
+              value={provForm.studentIdNumber}
+              onChange={(e) => setProvForm((p) => ({ ...p, studentIdNumber: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="email"
+              required
+              placeholder="Assigned School Email *"
+              value={provForm.portalEmail}
+              onChange={(e) => setProvForm((p) => ({ ...p, portalEmail: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Assigned Portal Password *"
+              value={provForm.portalPassword}
+              onChange={(e) => setProvForm((p) => ({ ...p, portalPassword: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="University Name *"
+              value={provForm.university}
+              onChange={(e) => setProvForm((p) => ({ ...p, university: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="University Location *"
+              value={provForm.universityLocation}
+              onChange={(e) => setProvForm((p) => ({ ...p, universityLocation: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Course / Programme *"
+              value={provForm.course}
+              onChange={(e) => setProvForm((p) => ({ ...p, course: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Expected Arrival (e.g. January 31, 2027) *"
+              value={provForm.expectedArrivalDate}
+              onChange={(e) => setProvForm((p) => ({ ...p, expectedArrivalDate: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="number"
+              required
+              placeholder="Gross Annual Fee USD *"
+              value={provForm.grossAnnualFeeUsd}
+              onChange={(e) => setProvForm((p) => ({ ...p, grossAnnualFeeUsd: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="number"
+              required
+              placeholder="Net Household Fee USD *"
+              value={provForm.householdFeeUsd}
+              onChange={(e) => setProvForm((p) => ({ ...p, householdFeeUsd: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Home / Legal Guardian Name *"
+              value={provForm.homeGuardianName}
+              onChange={(e) => setProvForm((p) => ({ ...p, homeGuardianName: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="School Guardian (Senior Student) *"
+              value={provForm.schoolGuardianName}
+              onChange={(e) => setProvForm((p) => ({ ...p, schoolGuardianName: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Work-Study Role (e.g. Student Librarian) *"
+              value={provForm.workStudyRole}
+              onChange={(e) => setProvForm((p) => ({ ...p, workStudyRole: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Work-Study Location *"
+              value={provForm.workStudyLocation}
+              onChange={(e) => setProvForm((p) => ({ ...p, workStudyLocation: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="number"
+              required
+              placeholder="Hourly Rate USD (e.g. 15) *"
+              value={provForm.workStudyHourlyUsd}
+              onChange={(e) => setProvForm((p) => ({ ...p, workStudyHourlyUsd: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+            <input
+              type="number"
+              required
+              placeholder="Hours Per Day (e.g. 4) *"
+              value={provForm.workStudyHoursPerDay}
+              onChange={(e) => setProvForm((p) => ({ ...p, workStudyHoursPerDay: e.target.value }))}
+              className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={savingProvision}
+              className="px-4 py-2 rounded-md bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white text-[13px] font-semibold cursor-pointer whitespace-nowrap"
+            >
+              {savingProvision ? 'Saving to Firestore...' : 'Save & Sync Student Portal'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {adminLoading && (
+        <p className="text-[13.5px] text-slate-500">Loading provisioned student records...</p>
+      )}
+      {adminError && (
+        <p className="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
+          {adminError}
+        </p>
+      )}
+
+      {adminRoster.map((entry) => (
+        <div
+          key={entry.portalId}
+          className="border border-slate-200 rounded-lg p-5 bg-[#F4F6F9] space-y-4"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="font-display font-bold text-[16px] text-[#0C2340]">
+                {entry.studentName} — {entry.university}
+              </h3>
+              <p className="text-[13px] text-slate-600">
+                Sign-Up Email: <strong>{entry.studentEmail}</strong> · Course: {entry.course} ·
+                Expected Household Fee: ${entry.householdFeeUsd.toLocaleString()} USD ·{' '}
+                <span
+                  className={
+                    firestoreSyncedIds.includes(entry.portalId)
+                      ? 'text-emerald-700 font-semibold'
+                      : 'text-amber-700 font-semibold'
+                  }
+                >
+                  {firestoreSyncedIds.includes(entry.portalId)
+                    ? 'Synced in Firestore'
+                    : 'Pending Firestore Sync'}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={syncingPortalId === entry.portalId}
+                onClick={() => handleSyncToFirestore(entry)}
+                className="px-3.5 py-2 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-[#0C2340] text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <CloudUpload className="w-3.5 h-3.5" />
+                {syncingPortalId === entry.portalId ? 'Syncing...' : 'Sync to Firestore'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setUnlockedPortal(entry)}
+                className="px-3.5 py-2 rounded-md bg-[#0C2340] hover:bg-[#16365E] text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Preview Portal
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[13px]">
+            <div className="bg-white rounded-md border border-slate-200 p-3 flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-500">
+                  Generated School Student Email
+                </div>
+                <div className="font-mono font-semibold text-[#0C2340]">
+                  {entry.portalEmail}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopyText('School Email', entry.portalEmail)}
+                className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-[#0C2340] cursor-pointer"
+                aria-label="Copy generated school email"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-white rounded-md border border-slate-200 p-3 flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-slate-500">
+                  Generated Student Portal Password
+                </div>
+                <div className="font-mono font-semibold text-[#0C2340]">
+                  {entry.generatedPortalPassword}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopyText('Portal Password', entry.generatedPortalPassword)}
+                className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-[#0C2340] cursor-pointer"
+                aria-label="Copy generated portal password"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   return (
     <section className="max-w-[960px] mx-auto px-4 sm:px-6 py-9 sm:py-12 space-y-6">
+      {coordinatorPanel}
+
       <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-100">
           <div>
@@ -1319,13 +1605,24 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
               <ShieldCheck className="w-4 h-4" />
               <span>Email-Isolated Portal Gate</span>
             </div>
-            <h1 className="mt-1.5 font-display font-bold text-[22px] sm:text-[25px] text-[#0C2340]">
+            <h2 className="mt-1.5 font-display font-bold text-[22px] sm:text-[25px] text-[#0C2340]">
               Sign In to Your Personal Student Portal
-            </h1>
+            </h2>
             <p className="mt-1 text-[13.5px] text-slate-600">
-              Currently signed in as{' '}
-              <strong className="font-semibold text-[#0C2340]">{user.email}</strong>. Enter the
-              personal school student email and password issued to you upon admission.
+              {isCoordinator ? (
+                <>
+                  You are currently logged in as Coordinator (
+                  <strong className="font-semibold text-[#0C2340]">{user.email}</strong>). Use{' '}
+                  <strong>Preview Portal</strong> above to inspect any student, or log out and sign
+                  in with a student&apos;s personal sign-up email to test this gate.
+                </>
+              ) : (
+                <>
+                  Currently signed in as{' '}
+                  <strong className="font-semibold text-[#0C2340]">{user.email}</strong>. Enter the
+                  personal school student email and password issued to you upon admission.
+                </>
+              )}
             </p>
           </div>
           <div className="w-11 h-11 rounded-lg bg-[#0C2340] text-white flex items-center justify-center shrink-0">
@@ -1411,287 +1708,6 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
           </div>
         </form>
       </div>
-
-      {/* Platform Coordinator / Admin Provisioning Panel (strictly hidden unless signed in as ADMIN_EMAIL) */}
-      {isCoordinator && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-7 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-[11.5px] font-mono uppercase tracking-wider text-[#B46900] font-semibold">
-                Coordinator Admin Console
-              </div>
-              <h2 className="mt-0.5 font-display font-bold text-[18px] text-[#0C2340] flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-[#0C2340]" />
-                <span>Provisioned Student Portals ({adminRoster.length})</span>
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowProvisionForm((prev) => !prev)}
-              className="px-3.5 py-2 rounded-md bg-[#0C2340] hover:bg-[#16365E] text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4" />
-              {showProvisionForm ? 'Close Form' : 'Provision Student Directly to Firestore'}
-            </button>
-          </div>
-
-          {showProvisionForm && (
-            <form
-              onSubmit={handleProvisionDirectToFirestore}
-              className="border border-slate-200 rounded-lg p-5 bg-[#F4F6F9] space-y-4"
-            >
-              <div className="text-[13px] font-semibold text-[#0C2340]">
-                Write Student Portal Directly to Firestore (Works on Cloudflare Pages &amp; AI Studio)
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-[13px]">
-                <input
-                  type="email"
-                  required
-                  placeholder="Student Sign-Up Email *"
-                  value={provForm.studentEmail}
-                  onChange={(e) => setProvForm((p) => ({ ...p, studentEmail: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Full Name *"
-                  value={provForm.studentName}
-                  onChange={(e) => setProvForm((p) => ({ ...p, studentName: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Student ID (e.g. BC-2026-0806) *"
-                  value={provForm.studentIdNumber}
-                  onChange={(e) => setProvForm((p) => ({ ...p, studentIdNumber: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="email"
-                  required
-                  placeholder="Assigned School Email *"
-                  value={provForm.portalEmail}
-                  onChange={(e) => setProvForm((p) => ({ ...p, portalEmail: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Assigned Portal Password *"
-                  value={provForm.portalPassword}
-                  onChange={(e) => setProvForm((p) => ({ ...p, portalPassword: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="University Name *"
-                  value={provForm.university}
-                  onChange={(e) => setProvForm((p) => ({ ...p, university: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="University Location *"
-                  value={provForm.universityLocation}
-                  onChange={(e) => setProvForm((p) => ({ ...p, universityLocation: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Course / Programme *"
-                  value={provForm.course}
-                  onChange={(e) => setProvForm((p) => ({ ...p, course: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Expected Arrival (e.g. January 31, 2027) *"
-                  value={provForm.expectedArrivalDate}
-                  onChange={(e) => setProvForm((p) => ({ ...p, expectedArrivalDate: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="number"
-                  required
-                  placeholder="Gross Annual Fee USD *"
-                  value={provForm.grossAnnualFeeUsd}
-                  onChange={(e) => setProvForm((p) => ({ ...p, grossAnnualFeeUsd: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="number"
-                  required
-                  placeholder="Net Household Fee USD *"
-                  value={provForm.householdFeeUsd}
-                  onChange={(e) => setProvForm((p) => ({ ...p, householdFeeUsd: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Home / Legal Guardian Name *"
-                  value={provForm.homeGuardianName}
-                  onChange={(e) => setProvForm((p) => ({ ...p, homeGuardianName: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="School Guardian (Senior Student) *"
-                  value={provForm.schoolGuardianName}
-                  onChange={(e) => setProvForm((p) => ({ ...p, schoolGuardianName: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Work-Study Role (e.g. Student Librarian) *"
-                  value={provForm.workStudyRole}
-                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyRole: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="text"
-                  required
-                  placeholder="Work-Study Location *"
-                  value={provForm.workStudyLocation}
-                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyLocation: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="number"
-                  required
-                  placeholder="Hourly Rate USD (e.g. 15) *"
-                  value={provForm.workStudyHourlyUsd}
-                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyHourlyUsd: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-                <input
-                  type="number"
-                  required
-                  placeholder="Hours Per Day (e.g. 4) *"
-                  value={provForm.workStudyHoursPerDay}
-                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyHoursPerDay: e.target.value }))}
-                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={savingProvision}
-                  className="px-4 py-2 rounded-md bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white text-[13px] font-semibold cursor-pointer whitespace-nowrap"
-                >
-                  {savingProvision ? 'Saving to Firestore...' : 'Save & Sync Student Portal'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {adminLoading && (
-            <p className="text-[13.5px] text-slate-500">Loading provisioned student records...</p>
-          )}
-          {adminError && (
-            <p className="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md p-3">
-              {adminError}
-            </p>
-          )}
-
-          {adminRoster.map((entry) => (
-            <div
-              key={entry.portalId}
-              className="border border-slate-200 rounded-lg p-5 bg-[#F4F6F9] space-y-4"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <h3 className="font-display font-bold text-[16px] text-[#0C2340]">
-                    {entry.studentName} — {entry.university}
-                  </h3>
-                  <p className="text-[13px] text-slate-600">
-                    Sign-Up Email: <strong>{entry.studentEmail}</strong> · Course: {entry.course} ·
-                    Expected Household Fee: ${entry.householdFeeUsd.toLocaleString()} USD ·{' '}
-                    <span
-                      className={
-                        firestoreSyncedIds.includes(entry.portalId)
-                          ? 'text-emerald-700 font-semibold'
-                          : 'text-amber-700 font-semibold'
-                      }
-                    >
-                      {firestoreSyncedIds.includes(entry.portalId)
-                        ? 'Synced in Firestore'
-                        : 'Pending Firestore Sync'}
-                    </span>
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={syncingPortalId === entry.portalId}
-                    onClick={() => handleSyncToFirestore(entry)}
-                    className="px-3.5 py-2 rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-[#0C2340] text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  >
-                    <CloudUpload className="w-3.5 h-3.5" />
-                    {syncingPortalId === entry.portalId ? 'Syncing...' : 'Sync to Firestore'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUnlockedPortal(entry)}
-                    className="px-3.5 py-2 rounded-md bg-[#0C2340] hover:bg-[#16365E] text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Preview Portal
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[13px]">
-                <div className="bg-white rounded-md border border-slate-200 p-3 flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-500">
-                      Generated School Student Email
-                    </div>
-                    <div className="font-mono font-semibold text-[#0C2340]">
-                      {entry.portalEmail}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyText('School Email', entry.portalEmail)}
-                    className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-[#0C2340] cursor-pointer"
-                    aria-label="Copy generated school email"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="bg-white rounded-md border border-slate-200 p-3 flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-[11px] uppercase tracking-wider text-slate-500">
-                      Generated Student Portal Password
-                    </div>
-                    <div className="font-mono font-semibold text-[#0C2340]">
-                      {entry.generatedPortalPassword}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyText('Portal Password', entry.generatedPortalPassword)}
-                    className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-[#0C2340] cursor-pointer"
-                    aria-label="Copy generated portal password"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 };

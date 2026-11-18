@@ -24,12 +24,14 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems: { id: ActiveTab; label: string }[] = user
     ? [
         { id: 'dashboard', label: 'My Dashboard' },
+        { id: 'student-portal', label: 'Student Portal' },
         { id: 'browse', label: 'Browse Programs' },
         { id: 'visa-guides', label: 'Visa & Work Guides' },
         { id: 'document-vault', label: 'Document Vault' },
       ]
     : [
         { id: 'browse', label: 'Browse Programs' },
+        { id: 'student-portal', label: 'Student Portal' },
         { id: 'visa-guides', label: 'Visa & Work Guides' },
         { id: 'how-it-works', label: 'How It Works' },
         { id: 'document-vault', label: 'Document Vault' },

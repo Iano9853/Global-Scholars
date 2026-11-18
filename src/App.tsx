@@ -24,6 +24,7 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { ProgramCard } from './components/ProgramCard';
 import { RequirementsModal } from './components/RequirementsModal';
 import { StudentDashboard } from './components/StudentDashboard';
+import { StudentPortalView } from './components/StudentPortalView';
 import { VisaGuidesView } from './components/VisaGuidesView';
 import { PROGRAMS_DATA } from './data/programs';
 import { auth } from './firebase';
@@ -104,9 +105,13 @@ function AppContent() {
   // Listen to Firebase Auth state changes cleanly without auto-creating profiles on login
   useEffect(() => {
     let active = true;
+    const safetyTimer = window.setTimeout(() => {
+      if (active) setAuthReady(true);
+    }, 4000);
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!active) return;
+      window.clearTimeout(safetyTimer);
 
       if (!firebaseUser) {
         setUser(null);
@@ -151,6 +156,7 @@ function AppContent() {
 
     return () => {
       active = false;
+      window.clearTimeout(safetyTimer);
       unsubscribe();
     };
   }, []);
@@ -790,6 +796,17 @@ function AppContent() {
           />
         )}
 
+        {activeTab === 'student-portal' && (
+          <StudentPortalView
+            user={user}
+            onOpenAuth={(mode) => {
+              setPendingAction(null);
+              setAuthScreen(mode);
+            }}
+            onToast={showToast}
+          />
+        )}
+
         {(activeTab === 'browse' || (activeTab === 'dashboard' && !user)) && (
           <>
             <HeroSearchBar
@@ -1048,6 +1065,13 @@ function AppContent() {
               className="hover:text-[#0C2340] cursor-pointer"
             >
               Browse Programs
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('student-portal')}
+              className="hover:text-[#0C2340] cursor-pointer"
+            >
+              Student Portal
             </button>
             <button
               type="button"

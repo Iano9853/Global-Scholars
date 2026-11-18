@@ -183,6 +183,182 @@
         "emailDispatched",
         "createdAt"
       ]
+    },
+    "StudentPortalRecord": {
+      "title": "StudentPortalRecord",
+      "description": "Isolated student portal record tied strictly to the student's exact verified sign-up email and school portal credentials.",
+      "type": "object",
+      "properties": {
+        "portalId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "studentIdNumber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "portalEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200
+        },
+        "portalPasswordHash": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 128
+        },
+        "university": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "universityLocation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "course": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "sponsorshipProgramme": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 220
+        },
+        "grossAnnualFeeUsd": {
+          "type": "number"
+        },
+        "governmentCoveragePercent": {
+          "type": "number"
+        },
+        "governmentCoverageUsd": {
+          "type": "number"
+        },
+        "householdFeeUsd": {
+          "type": "number"
+        },
+        "expectedArrivalDate": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "intakeTerm": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "homeGuardianName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "homeGuardianRelation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "schoolGuardianName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "schoolGuardianRole": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "workStudyRole": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "workStudyLocation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "workStudyHourlyUsd": {
+          "type": "number"
+        },
+        "workStudyHoursPerDay": {
+          "type": "number"
+        },
+        "workStudyDaysPerWeek": {
+          "type": "number"
+        },
+        "enrollmentStatus": {
+          "type": "string",
+          "enum": ["Pre-Arrival", "Enrolled", "Active"]
+        },
+        "academicTranscript": {
+          "type": "array"
+        },
+        "feesLedger": {
+          "type": "array"
+        },
+        "preArrivalChecklist": {
+          "type": "array"
+        },
+        "studentMail": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "portalId",
+        "studentEmail",
+        "studentName",
+        "studentIdNumber",
+        "portalEmail",
+        "portalPasswordHash",
+        "university",
+        "universityLocation",
+        "course",
+        "sponsorshipProgramme",
+        "grossAnnualFeeUsd",
+        "governmentCoveragePercent",
+        "governmentCoverageUsd",
+        "householdFeeUsd",
+        "expectedArrivalDate",
+        "intakeTerm",
+        "homeGuardianName",
+        "homeGuardianRelation",
+        "schoolGuardianName",
+        "schoolGuardianRole",
+        "workStudyRole",
+        "workStudyLocation",
+        "workStudyHourlyUsd",
+        "workStudyHoursPerDay",
+        "workStudyDaysPerWeek",
+        "enrollmentStatus",
+        "academicTranscript",
+        "feesLedger",
+        "preArrivalChecklist",
+        "studentMail",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -201,6 +377,10 @@
     "/users/{userId}/applications/{programId}": {
       "schema": { "$ref": "#/entities/ApplicationSubmission" },
       "description": "Student's confirmed school selections with requirements acknowledgement and outreach status."
+    },
+    "/studentPortals/{portalId}": {
+      "schema": { "$ref": "#/entities/StudentPortalRecord" },
+      "description": "Per-student institutional portal records keyed by sanitized sign-up email and strictly isolated by verified email ownership."
     }
   }
 }

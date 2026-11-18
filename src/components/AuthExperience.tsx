@@ -122,6 +122,10 @@ function mapFirebaseAuthError(err: unknown): string {
   if (code === 'auth/popup-blocked') {
     return 'Browser blocked the Google sign-in popup. Please allow popups for this site and try again.';
   }
+  if (code === 'auth/unauthorized-domain') {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+    return `Domain "${host}" is not authorized for Firebase sign-in yet. Add "${host}" in Firebase Console → Authentication → Settings → Authorized domains.`;
+  }
   if (code === 'auth/operation-not-allowed') {
     return 'Email/Password sign-in is not yet enabled in Firebase Console (Authentication → Sign-in method). You can use Continue with Google or enable Email/Password in Firebase Console.';
   }

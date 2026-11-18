@@ -15,6 +15,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
+    function isAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'mulijosephine446@gmail.com';
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -173,6 +177,113 @@ service cloud.firestore {
         && data.createdAt is timestamp;
     }
 
+    function isValidStudentPortalRecord(data, portalId) {
+      return data.keys().hasAll([
+          'portalId',
+          'studentEmail',
+          'studentName',
+          'studentIdNumber',
+          'portalEmail',
+          'portalPasswordHash',
+          'university',
+          'universityLocation',
+          'course',
+          'sponsorshipProgramme',
+          'grossAnnualFeeUsd',
+          'governmentCoveragePercent',
+          'governmentCoverageUsd',
+          'householdFeeUsd',
+          'expectedArrivalDate',
+          'intakeTerm',
+          'homeGuardianName',
+          'homeGuardianRelation',
+          'schoolGuardianName',
+          'schoolGuardianRole',
+          'workStudyRole',
+          'workStudyLocation',
+          'workStudyHourlyUsd',
+          'workStudyHoursPerDay',
+          'workStudyDaysPerWeek',
+          'enrollmentStatus',
+          'academicTranscript',
+          'feesLedger',
+          'preArrivalChecklist',
+          'studentMail',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'portalId',
+          'studentEmail',
+          'studentName',
+          'studentIdNumber',
+          'portalEmail',
+          'portalPasswordHash',
+          'university',
+          'universityLocation',
+          'course',
+          'sponsorshipProgramme',
+          'grossAnnualFeeUsd',
+          'governmentCoveragePercent',
+          'governmentCoverageUsd',
+          'householdFeeUsd',
+          'expectedArrivalDate',
+          'intakeTerm',
+          'homeGuardianName',
+          'homeGuardianRelation',
+          'schoolGuardianName',
+          'schoolGuardianRole',
+          'workStudyRole',
+          'workStudyLocation',
+          'workStudyHourlyUsd',
+          'workStudyHoursPerDay',
+          'workStudyDaysPerWeek',
+          'enrollmentStatus',
+          'academicTranscript',
+          'feesLedger',
+          'preArrivalChecklist',
+          'studentMail',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.portalId is string && data.portalId == portalId && isValidId(data.portalId)
+        && data.studentEmail is string && data.studentEmail.size() >= 3 && data.studentEmail.size() <= 200
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 120
+        && data.studentIdNumber is string && data.studentIdNumber.size() >= 1 && data.studentIdNumber.size() <= 60
+        && data.portalEmail is string && data.portalEmail.size() >= 3 && data.portalEmail.size() <= 200
+        && data.portalPasswordHash is string && data.portalPasswordHash.size() >= 64 && data.portalPasswordHash.size() <= 128
+        && data.university is string && data.university.size() >= 1 && data.university.size() <= 160
+        && data.universityLocation is string && data.universityLocation.size() >= 1 && data.universityLocation.size() <= 160
+        && data.course is string && data.course.size() >= 1 && data.course.size() <= 160
+        && data.sponsorshipProgramme is string && data.sponsorshipProgramme.size() >= 1 && data.sponsorshipProgramme.size() <= 220
+        && data.grossAnnualFeeUsd is number && data.grossAnnualFeeUsd >= 0
+        && data.governmentCoveragePercent is number && data.governmentCoveragePercent >= 0 && data.governmentCoveragePercent <= 100
+        && data.governmentCoverageUsd is number && data.governmentCoverageUsd >= 0
+        && data.householdFeeUsd is number && data.householdFeeUsd >= 0
+        && data.expectedArrivalDate is string && data.expectedArrivalDate.size() >= 1 && data.expectedArrivalDate.size() <= 80
+        && data.intakeTerm is string && data.intakeTerm.size() >= 1 && data.intakeTerm.size() <= 80
+        && data.homeGuardianName is string && data.homeGuardianName.size() >= 1 && data.homeGuardianName.size() <= 120
+        && data.homeGuardianRelation is string && data.homeGuardianRelation.size() >= 1 && data.homeGuardianRelation.size() <= 80
+        && data.schoolGuardianName is string && data.schoolGuardianName.size() >= 1 && data.schoolGuardianName.size() <= 120
+        && data.schoolGuardianRole is string && data.schoolGuardianRole.size() >= 1 && data.schoolGuardianRole.size() <= 120
+        && data.workStudyRole is string && data.workStudyRole.size() >= 1 && data.workStudyRole.size() <= 120
+        && data.workStudyLocation is string && data.workStudyLocation.size() >= 1 && data.workStudyLocation.size() <= 160
+        && data.workStudyHourlyUsd is number && data.workStudyHourlyUsd >= 0
+        && data.workStudyHoursPerDay is number && data.workStudyHoursPerDay >= 0 && data.workStudyHoursPerDay <= 12
+        && data.workStudyDaysPerWeek is number && data.workStudyDaysPerWeek >= 0 && data.workStudyDaysPerWeek <= 7
+        && data.enrollmentStatus in ['Pre-Arrival', 'Enrolled', 'Active']
+        && data.academicTranscript is list && data.academicTranscript.size() <= 20
+        && (data.academicTranscript.size() == 0 || data.academicTranscript[0] is map)
+        && data.feesLedger is list && data.feesLedger.size() <= 20
+        && (data.feesLedger.size() == 0 || data.feesLedger[0] is map)
+        && data.preArrivalChecklist is list && data.preArrivalChecklist.size() <= 15
+        && (data.preArrivalChecklist.size() == 0 || data.preArrivalChecklist[0] is map)
+        && data.studentMail is list && data.studentMail.size() <= 50
+        && (data.studentMail.size() == 0 || data.studentMail[0] is map)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) && isValidId(userId);
       allow create: if isVerifiedOwner(userId)
@@ -252,6 +363,27 @@ service cloud.firestore {
           && isValidId(userId)
           && isValidId(programId);
       }
+    }
+
+    match /studentPortals/{portalId} {
+      allow get: if isAdmin()
+        || (isVerifiedUser()
+          && isValidId(portalId)
+          && existing().studentEmail == request.auth.token.email);
+      allow list: if isAdmin() && resource.data.studentEmail is string;
+      allow create: if isAdmin()
+        && isValidId(portalId)
+        && isValidStudentPortalRecord(incoming(), portalId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(portalId)
+        && isValidStudentPortalRecord(incoming(), portalId)
+        && incoming().portalId == existing().portalId
+        && incoming().studentEmail == existing().studentEmail
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(portalId);
     }
   }
 }

@@ -12,9 +12,14 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import {
+  AcademicTranscriptTerm,
   ApplicationSubmission,
+  FeeLedgerItem,
   OnboardingProfile,
+  PreArrivalItem,
   ProgramOpportunity,
+  StudentMailMessage,
+  StudentPortalRecord,
   UserProfile,
   VaultDocument,
 } from '../types/program';
@@ -329,5 +334,137 @@ export async function submitApplicationToFirestore(
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export function emailToPortalId(email: string): string {
+  return email
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 128);
+}
+
+export async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+export async function fetchOwnStudentPortalFromFirestore(
+  studentEmail: string
+): Promise<StudentPortalRecord | null> {
+  const portalId = emailToPortalId(studentEmail);
+  if (!portalId) return null;
+
+  try {
+    const snap = await getDoc(doc(db, 'studentPortals', portalId));
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    return {
+      portalId: String(data.portalId ?? portalId),
+      studentEmail: String(data.studentEmail ?? ''),
+      studentName: String(data.studentName ?? ''),
+      studentIdNumber: String(data.studentIdNumber ?? ''),
+      portalEmail: String(data.portalEmail ?? ''),
+      portalPasswordHash: String(data.portalPasswordHash ?? ''),
+      university: String(data.university ?? ''),
+      universityLocation: String(data.universityLocation ?? ''),
+      course: String(data.course ?? ''),
+      sponsorshipProgramme: String(data.sponsorshipProgramme ?? ''),
+      grossAnnualFeeUsd: Number(data.grossAnnualFeeUsd ?? 0),
+      governmentCoveragePercent: Number(data.governmentCoveragePercent ?? 0),
+      governmentCoverageUsd: Number(data.governmentCoverageUsd ?? 0),
+      householdFeeUsd: Number(data.householdFeeUsd ?? 0),
+      expectedArrivalDate: String(data.expectedArrivalDate ?? ''),
+      intakeTerm: String(data.intakeTerm ?? ''),
+      homeGuardianName: String(data.homeGuardianName ?? ''),
+      homeGuardianRelation: String(data.homeGuardianRelation ?? ''),
+      schoolGuardianName: String(data.schoolGuardianName ?? ''),
+      schoolGuardianRole: String(data.schoolGuardianRole ?? ''),
+      workStudyRole: String(data.workStudyRole ?? ''),
+      workStudyLocation: String(data.workStudyLocation ?? ''),
+      workStudyHourlyUsd: Number(data.workStudyHourlyUsd ?? 0),
+      workStudyHoursPerDay: Number(data.workStudyHoursPerDay ?? 0),
+      workStudyDaysPerWeek: Number(data.workStudyDaysPerWeek ?? 0),
+      enrollmentStatus:
+        data.enrollmentStatus === 'Enrolled' || data.enrollmentStatus === 'Active'
+          ? data.enrollmentStatus
+          : 'Pre-Arrival',
+      academicTranscript: Array.isArray(data.academicTranscript)
+        ? (data.academicTranscript as AcademicTranscriptTerm[])
+        : [],
+      feesLedger: Array.isArray(data.feesLedger)
+        ? (data.feesLedger as FeeLedgerItem[])
+        : [],
+      preArrivalChecklist: Array.isArray(data.preArrivalChecklist)
+        ? (data.preArrivalChecklist as PreArrivalItem[])
+        : [],
+      studentMail: Array.isArray(data.studentMail)
+        ? (data.studentMail as StudentMailMessage[])
+        : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertStudentPortalAsAdmin(
+  record: StudentPortalRecord & { portalPasswordHash: string }
+): Promise<void> {
+  const path = `studentPortals/${record.portalId}`;
+  const ref = doc(db, 'studentPortals', record.portalId);
+
+  const payloadBase = {
+    portalId: record.portalId,
+    studentEmail: record.studentEmail.trim().toLowerCase().slice(0, 200),
+    studentName: record.studentName.slice(0, 120),
+    studentIdNumber: record.studentIdNumber.slice(0, 60),
+    portalEmail: record.portalEmail.trim().toLowerCase().slice(0, 200),
+    portalPasswordHash: record.portalPasswordHash.slice(0, 128),
+    university: record.university.slice(0, 160),
+    universityLocation: record.universityLocation.slice(0, 160),
+    course: record.course.slice(0, 160),
+    sponsorshipProgramme: record.sponsorshipProgramme.slice(0, 220),
+    grossAnnualFeeUsd: Number(record.grossAnnualFeeUsd) || 0,
+    governmentCoveragePercent: Number(record.governmentCoveragePercent) || 0,
+    governmentCoverageUsd: Number(record.governmentCoverageUsd) || 0,
+    householdFeeUsd: Number(record.householdFeeUsd) || 0,
+    expectedArrivalDate: record.expectedArrivalDate.slice(0, 80),
+    intakeTerm: record.intakeTerm.slice(0, 80),
+    homeGuardianName: record.homeGuardianName.slice(0, 120),
+    homeGuardianRelation: record.homeGuardianRelation.slice(0, 80),
+    schoolGuardianName: record.schoolGuardianName.slice(0, 120),
+    schoolGuardianRole: record.schoolGuardianRole.slice(0, 120),
+    workStudyRole: record.workStudyRole.slice(0, 120),
+    workStudyLocation: record.workStudyLocation.slice(0, 160),
+    workStudyHourlyUsd: Number(record.workStudyHourlyUsd) || 0,
+    workStudyHoursPerDay: Number(record.workStudyHoursPerDay) || 0,
+    workStudyDaysPerWeek: Number(record.workStudyDaysPerWeek) || 0,
+    enrollmentStatus: record.enrollmentStatus,
+    academicTranscript: record.academicTranscript.slice(0, 20),
+    feesLedger: record.feesLedger.slice(0, 20),
+    preArrivalChecklist: record.preArrivalChecklist.slice(0, 15),
+    studentMail: (record.studentMail || []).slice(0, 50),
+  };
+
+  try {
+    const existing = await getDoc(ref);
+    if (!existing.exists()) {
+      await setDoc(ref, {
+        ...payloadBase,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await updateDoc(ref, {
+        ...payloadBase,
+        createdAt: existing.data().createdAt,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }

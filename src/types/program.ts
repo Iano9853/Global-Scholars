@@ -154,9 +154,87 @@ export interface PendingAuthAction {
   university: string;
 }
 
+export interface AcademicTranscriptTerm {
+  term: string;
+  courseCode: string;
+  courseTitle: string;
+  credits: number;
+  grade: string;
+  gpaPoints: number;
+  status: 'Completed' | 'In Progress' | 'Upcoming';
+}
+
+export interface FeeLedgerItem {
+  id: string;
+  date: string;
+  description: string;
+  category:
+    | 'Tuition & Fees'
+    | 'Government Sponsorship'
+    | 'Institutional Aid'
+    | 'Household Payment';
+  amountUsd: number;
+  status: 'Assessed' | 'Expected' | 'Credited' | 'Balance Due' | 'Paid';
+}
+
+export interface PreArrivalItem {
+  id: string;
+  title: string;
+  category: 'Immigration' | 'Health & Housing' | 'Financial' | 'Campus Onboarding';
+  dueBy: string;
+  status: 'Pending' | 'In Progress' | 'Completed';
+  notes: string;
+}
+
+export interface StudentMailMessage {
+  id: string;
+  senderName: string;
+  senderEmail: string;
+  senderDepartment: string;
+  subject: string;
+  sentAt: string;
+  category: 'Admissions' | 'Financial Aid' | 'Work-Study' | 'Campus Life';
+  body: string;
+  read: boolean;
+}
+
+export interface StudentPortalRecord {
+  portalId: string;
+  studentEmail: string;
+  studentName: string;
+  studentIdNumber: string;
+  portalEmail: string;
+  portalPasswordHash?: string;
+  university: string;
+  universityLocation: string;
+  course: string;
+  sponsorshipProgramme: string;
+  grossAnnualFeeUsd: number;
+  governmentCoveragePercent: number;
+  governmentCoverageUsd: number;
+  householdFeeUsd: number;
+  expectedArrivalDate: string;
+  intakeTerm: string;
+  homeGuardianName: string;
+  homeGuardianRelation: string;
+  schoolGuardianName: string;
+  schoolGuardianRole: string;
+  workStudyRole: string;
+  workStudyLocation: string;
+  workStudyHourlyUsd: number;
+  workStudyHoursPerDay: number;
+  workStudyDaysPerWeek: number;
+  enrollmentStatus: 'Pre-Arrival' | 'Enrolled' | 'Active';
+  academicTranscript: AcademicTranscriptTerm[];
+  feesLedger: FeeLedgerItem[];
+  preArrivalChecklist: PreArrivalItem[];
+  studentMail: StudentMailMessage[];
+}
+
 export type ActiveTab =
   | 'browse'
   | 'dashboard'
+  | 'student-portal'
   | 'visa-guides'
   | 'how-it-works'
   | 'document-vault';

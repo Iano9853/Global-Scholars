@@ -200,11 +200,27 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState('');
+  const [allowInputEdit, setAllowInputEdit] = useState(false);
 
   const strength = useMemo(() => getPasswordStrength(signupPassword), [signupPassword]);
 
   const activeVerifyEmail =
     pendingVerifyEmail || auth.currentUser?.email || signupEmail;
+
+  // Reset form fields and lock autofill on screen switch so browser never pre-fills another user's credentials
+  useEffect(() => {
+    setAllowInputEdit(false);
+    setSignupError('');
+    setLoginError('');
+    if (screen === 'signup') {
+      setFullName('');
+      setSignupEmail('');
+      setSignupPassword('');
+    } else if (screen === 'login') {
+      setLoginEmail('');
+      setLoginPassword('');
+    }
+  }, [screen]);
 
   // Countdown timer on verify-email screen
   useEffect(() => {
@@ -508,7 +524,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                 <div className="flex-1 h-px bg-slate-200" />
               </div>
 
-              <form onSubmit={handleSignupFormSubmit} className="space-y-4">
+              <form onSubmit={handleSignupFormSubmit} autoComplete="off" className="space-y-4">
                 <div>
                   <label
                     htmlFor="signup-name"
@@ -518,7 +534,12 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                   </label>
                   <input
                     id="signup-name"
+                    name="sw_signup_fullname"
                     type="text"
+                    autoComplete="off"
+                    readOnly={!allowInputEdit}
+                    onFocus={() => setAllowInputEdit(true)}
+                    onPointerDown={() => setAllowInputEdit(true)}
                     value={fullName}
                     onChange={(e) => {
                       setFullName(e.target.value);
@@ -541,7 +562,12 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                   </label>
                   <input
                     id="signup-email"
+                    name="sw_signup_email_address"
                     type="email"
+                    autoComplete="new-password"
+                    readOnly={!allowInputEdit}
+                    onFocus={() => setAllowInputEdit(true)}
+                    onPointerDown={() => setAllowInputEdit(true)}
                     value={signupEmail}
                     onChange={(e) => {
                       setSignupEmail(e.target.value);
@@ -562,7 +588,12 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                   <div className="relative">
                     <input
                       id="signup-password"
+                      name="sw_signup_passcode"
                       type={showSignupPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      readOnly={!allowInputEdit}
+                      onFocus={() => setAllowInputEdit(true)}
+                      onPointerDown={() => setAllowInputEdit(true)}
                       value={signupPassword}
                       onChange={(e) => {
                         setSignupPassword(e.target.value);
@@ -786,7 +817,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleLoginFormSubmit} className="space-y-4">
+              <form onSubmit={handleLoginFormSubmit} autoComplete="off" className="space-y-4">
                 <div>
                   <label
                     htmlFor="login-email"
@@ -796,7 +827,12 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                   </label>
                   <input
                     id="login-email"
+                    name="sw_login_email_address"
                     type="email"
+                    autoComplete="new-password"
+                    readOnly={!allowInputEdit}
+                    onFocus={() => setAllowInputEdit(true)}
+                    onPointerDown={() => setAllowInputEdit(true)}
                     value={loginEmail}
                     onChange={(e) => {
                       setLoginEmail(e.target.value);
@@ -831,7 +867,12 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
                   <div className="relative">
                     <input
                       id="login-password"
+                      name="sw_login_passcode"
                       type={showLoginPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      readOnly={!allowInputEdit}
+                      onFocus={() => setAllowInputEdit(true)}
+                      onPointerDown={() => setAllowInputEdit(true)}
                       value={loginPassword}
                       onChange={(e) => {
                         setLoginPassword(e.target.value);

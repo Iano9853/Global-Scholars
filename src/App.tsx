@@ -41,6 +41,7 @@ import {
   subscribeSavedProgramIds,
   subscribeVaultDocuments,
   updateVaultDocumentStatusInFirestore,
+  upsertStudentPortalAsAdmin,
 } from './services/userStorage';
 import {
   ActiveTab,
@@ -61,6 +62,12 @@ const INITIAL_SEARCH: SearchParams = {
   studyLevel: 'All Levels',
   fundingType: 'All Funding',
 };
+
+const COORDINATOR_EMAIL = 'mulijosephine446@gmail.com';
+
+function isCoordinatorEmail(email?: string | null): boolean {
+  return Boolean(email && email.trim().toLowerCase() === COORDINATOR_EMAIL);
+}
 
 const INITIAL_FILTERS: SidebarFilters = {
   internationalEligibleOnly: false,
@@ -142,8 +149,23 @@ function AppContent() {
               homeCountry: existingProfile.onboarding.passportCountry,
             }));
           }
+        } else if (isCoordinatorEmail(firebaseUser.email)) {
+          const isGoogle = firebaseUser.providerData.some((p) => p.providerId === 'google.com');
+          const coordOnboarding = createEmptyOnboardingProfile();
+          coordOnboarding.onboardingCompleted = true;
+          const coordProfile: UserProfile = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Coordinator',
+            email: firebaseUser.email ?? COORDINATOR_EMAIL,
+            authProvider: isGoogle ? 'google' : 'email',
+            emailVerified: true,
+            onboarding: coordOnboarding,
+          };
+          await createOrUpdateUserProfile(coordProfile);
+          if (!active) return;
+          setUser(coordProfile);
         } else {
-          // Do not auto-create profile here — signup flows explicitly create profiles.
+          // Do not auto-create student profile here — signup flows explicitly create profiles.
           // If an un-registered auth session appears transiently during login check, keep user null.
           setUser(null);
         }
@@ -189,6 +211,57 @@ function AppContent() {
       unsubSaved();
       unsubDocs();
       unsubApps();
+    };
+  }, [user]);
+
+  // Automatically sync server-provisioned Student Portals to Firestore whenever coordinator logs in
+  useEffect(() => {
+    if (
+      !user ||
+      !user.emailVerified ||
+      user.email.trim().toLowerCase() !== 'mulijosephine446@gmail.com' ||
+      !auth.currentUser
+    ) {
+      return;
+    }
+
+    let active = true;
+    const syncPortals = async () => {
+      try {
+        const idToken = await auth.currentUser?.getIdToken(true);
+        if (!idToken || !active) return;
+
+        const resp = await fetch('/api/student-portal/admin-roster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        });
+        const raw = await resp.text();
+        let data: {
+          authorized?: boolean;
+          students?: Array<
+            import('./types/program').StudentPortalRecord & { portalPasswordHash: string }
+          >;
+        } | null = null;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = null;
+        }
+        if (!active || !resp.ok || !data?.authorized || !Array.isArray(data.students)) return;
+
+        for (const studentRecord of data.students) {
+          if (!active) break;
+          await upsertStudentPortalAsAdmin(studentRecord);
+        }
+      } catch {
+        // Silent background sync — Coordinator Console handles manual sync status too
+      }
+    };
+
+    syncPortals();
+    return () => {
+      active = false;
     };
   }, [user]);
 
@@ -537,13 +610,21 @@ function AppContent() {
     firebaseUser: User,
     provider: 'google' | 'email'
   ): Promise<UserProfile> => {
+    const isCoord = isCoordinatorEmail(firebaseUser.email);
+    const onboarding = createEmptyOnboardingProfile();
+    if (isCoord) {
+      onboarding.onboardingCompleted = true;
+    }
     const fresh: UserProfile = {
       id: firebaseUser.uid,
-      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Student',
+      name:
+        firebaseUser.displayName ||
+        firebaseUser.email?.split('@')[0] ||
+        (isCoord ? 'Coordinator' : 'Student'),
       email: firebaseUser.email ?? '',
       authProvider: provider,
       emailVerified: true,
-      onboarding: createEmptyOnboardingProfile(),
+      onboarding,
     };
     await createOrUpdateUserProfile(fresh);
     return fresh;
@@ -555,19 +636,27 @@ function AppContent() {
   ): Promise<{ ok: boolean; error?: string }> => {
     await firebaseUser.getIdToken(true);
     let profile = await fetchUserProfile(firebaseUser.uid);
+    const isCoord = isCoordinatorEmail(firebaseUser.email);
 
     if (mode === 'login') {
       if (!profile) {
-        await signOut(auth);
-        setUser(null);
-        return {
-          ok: false,
-          error:
-            'No registered account found for this Google email. Please sign up first.',
-        };
+        if (isCoord) {
+          profile = await createFreshUserProfile(firebaseUser, 'google');
+        } else {
+          await signOut(auth);
+          setUser(null);
+          return {
+            ok: false,
+            error:
+              'No registered account found for this Google email. Please sign up first.',
+          };
+        }
       }
       setUser(profile);
-      if (!profile.onboarding.onboardingCompleted) {
+      if (isCoord) {
+        setAuthScreen(null);
+        setActiveTab('student-portal');
+      } else if (!profile.onboarding.onboardingCompleted) {
         setAuthScreen('onboarding');
       } else {
         await executePostAuthRedirect(profile);
@@ -583,7 +672,10 @@ function AppContent() {
     }
 
     setUser(profile);
-    if (isBrandNew || !profile.onboarding.onboardingCompleted) {
+    if (isCoord) {
+      setAuthScreen(null);
+      setActiveTab('student-portal');
+    } else if (isBrandNew || !profile.onboarding.onboardingCompleted) {
       setAuthScreen('onboarding');
     } else {
       await executePostAuthRedirect(profile);
@@ -600,6 +692,7 @@ function AppContent() {
     await firebaseUser.getIdToken(true);
     let profile = await fetchUserProfile(firebaseUser.uid);
     let isBrandNew = false;
+    const isCoord = isCoordinatorEmail(firebaseUser.email);
 
     if (!profile) {
       isBrandNew = true;
@@ -607,6 +700,11 @@ function AppContent() {
     }
 
     setUser(profile);
+    if (isCoord) {
+      setAuthScreen(null);
+      setActiveTab('student-portal');
+      return;
+    }
     if (isBrandNew || !profile.onboarding.onboardingCompleted) {
       setAuthScreen('onboarding');
       return;
@@ -618,18 +716,28 @@ function AppContent() {
     firebaseUser: User
   ): Promise<{ ok: boolean; error?: string }> => {
     await firebaseUser.getIdToken(true);
-    const profile = await fetchUserProfile(firebaseUser.uid);
+    let profile = await fetchUserProfile(firebaseUser.uid);
+    const isCoord = isCoordinatorEmail(firebaseUser.email);
 
     if (!profile) {
-      await signOut(auth);
-      setUser(null);
-      return {
-        ok: false,
-        error: 'No registered student account found for these credentials. Please sign up first.',
-      };
+      if (isCoord) {
+        profile = await createFreshUserProfile(firebaseUser, 'email');
+      } else {
+        await signOut(auth);
+        setUser(null);
+        return {
+          ok: false,
+          error: 'No registered student account found for these credentials. Please sign up first.',
+        };
+      }
     }
 
     setUser(profile);
+    if (isCoord) {
+      setAuthScreen(null);
+      setActiveTab('student-portal');
+      return { ok: true };
+    }
     if (!profile.onboarding.onboardingCompleted) {
       setAuthScreen('onboarding');
       return { ok: true };

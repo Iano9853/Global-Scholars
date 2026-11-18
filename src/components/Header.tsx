@@ -97,11 +97,21 @@ export const Header: React.FC<HeaderProps> = ({
             <>
               <button
                 type="button"
-                onClick={() => handleNavClick('dashboard')}
+                onClick={() =>
+                  handleNavClick(
+                    user.email.trim().toLowerCase() === 'mulijosephine446@gmail.com'
+                      ? 'student-portal'
+                      : 'dashboard'
+                  )
+                }
                 className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-[12px] sm:text-[13px] font-medium text-[#0C2340] bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer max-w-[140px] sm:max-w-none truncate"
               >
                 {user.name.split(' ')[0]}
-                {user.onboarding.passportCountry ? ` · ${user.onboarding.passportCountry}` : ''}
+                {user.email.trim().toLowerCase() === 'mulijosephine446@gmail.com'
+                  ? ' · Coordinator'
+                  : user.onboarding.passportCountry
+                  ? ` · ${user.onboarding.passportCountry}`
+                  : ''}
               </button>
               <button
                 type="button"

@@ -20,6 +20,7 @@ import {
   Lock,
   LogOut,
   Mail,
+  Plus,
   Search,
   ShieldCheck,
   UserCheck,
@@ -27,6 +28,8 @@ import {
 } from 'lucide-react';
 import { auth } from '../firebase';
 import {
+  emailToPortalId,
+  fetchAllStudentPortalsFromFirestoreAsAdmin,
   fetchOwnStudentPortalFromFirestore,
   sha256Hex,
   upsertStudentPortalAsAdmin,
@@ -58,6 +61,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
 }) => {
   const [portalEmailInput, setPortalEmailInput] = useState('');
   const [portalPasswordInput, setPortalPasswordInput] = useState('');
+  const [allowPortalInput, setAllowPortalInput] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authenticating, setAuthenticating] = useState(false);
@@ -91,6 +95,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     setSelectedMailId(null);
     setPortalEmailInput('');
     setPortalPasswordInput('');
+    setAllowPortalInput(false);
     setAuthError(null);
     setAdminRoster([]);
     setAdminError(null);
@@ -108,6 +113,35 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     setSelectedMailId(msgs[0]?.id ?? null);
   }, [unlockedPortal]);
 
+  const [firestoreSyncedIds, setFirestoreSyncedIds] = useState<string[]>([]);
+  const [showProvisionForm, setShowProvisionForm] = useState(false);
+  const [savingProvision, setSavingProvision] = useState(false);
+  const [provForm, setProvForm] = useState({
+    studentEmail: '',
+    studentName: '',
+    studentIdNumber: '',
+    portalEmail: '',
+    portalPassword: '',
+    university: '',
+    universityLocation: '',
+    course: '',
+    sponsorshipProgramme: '80% Government Sponsorship & Work-Study Programme',
+    grossAnnualFeeUsd: '10100',
+    governmentCoveragePercent: '80',
+    householdFeeUsd: '2020',
+    expectedArrivalDate: '',
+    intakeTerm: 'Spring 2027 Arrival & Orientation',
+    homeGuardianName: '',
+    homeGuardianRelation: 'Legal Guardian',
+    schoolGuardianName: '',
+    schoolGuardianRole: 'Senior Peer Mentor & Campus Adjustment Guardian',
+    workStudyRole: '',
+    workStudyLocation: '',
+    workStudyHourlyUsd: '15',
+    workStudyHoursPerDay: '4',
+    workStudyDaysPerWeek: '5',
+  });
+
   useEffect(() => {
     if (!isCoordinator || !auth.currentUser) return;
     let active = true;
@@ -116,6 +150,13 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       setAdminLoading(true);
       setAdminError(null);
       try {
+        const firestoreDocs = await fetchAllStudentPortalsFromFirestoreAsAdmin().catch(
+          () => [] as StudentPortalRecord[]
+        );
+        if (active) {
+          setFirestoreSyncedIds(firestoreDocs.map((d) => d.portalId));
+        }
+
         const idToken = await auth.currentUser?.getIdToken(true);
         if (!idToken) return;
         const resp = await fetch('/api/student-portal/admin-roster', {
@@ -134,10 +175,18 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
         if (!active) return;
         if (resp.ok && data?.authorized && Array.isArray(data.students)) {
           setAdminRoster(data.students);
+        } else if (firestoreDocs.length > 0) {
+          setAdminRoster(
+            firestoreDocs.map((d) => ({
+              ...d,
+              portalPasswordHash: d.portalPasswordHash || '',
+              generatedPortalPassword: '(Synced in Firestore — view server console for plaintext)',
+            }))
+          );
         } else {
           setAdminError(
             data?.error ||
-              'Coordinator roster endpoint is only available when running the Express backend server.'
+              'Coordinator provisioning server is not reachable on static hosting. Open the main AI Studio app once while signed in as coordinator to auto-sync student records to Firestore.'
           );
         }
       } catch {
@@ -264,7 +313,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
         const firestorePortal = await fetchOwnStudentPortalFromFirestore(user.email);
         if (!firestorePortal) {
           setAuthError(
-            `No Student Portal has been provisioned for ${user.email}. Only the exact student admitted with their sign-up email can unlock their portal.`
+            `No synced Student Portal record was found in Firestore for ${user.email}. If you are signing in on the published static site (Cloudflare Pages), ask the coordinator to open the main app once so student portal records sync to Firestore, or sign in on the main application URL.`
           );
           return;
         }
@@ -299,6 +348,9 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
     setSyncingPortalId(entry.portalId);
     try {
       await upsertStudentPortalAsAdmin(entry);
+      setFirestoreSyncedIds((prev) =>
+        prev.includes(entry.portalId) ? prev : [...prev, entry.portalId]
+      );
       onToast(
         `${entry.studentName}'s Student Portal synced securely to Firestore for ${entry.studentEmail}.`
       );
@@ -306,6 +358,151 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
       onToast(err instanceof Error ? err.message : 'Failed to sync portal record to Firestore.');
     } finally {
       setSyncingPortalId(null);
+    }
+  };
+
+  const handleProvisionDirectToFirestore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = provForm.studentEmail.trim().toLowerCase();
+    const portalId = emailToPortalId(cleanEmail);
+    const cleanSchoolEmail = provForm.portalEmail.trim().toLowerCase();
+    if (!cleanEmail || !portalId || !cleanSchoolEmail || !provForm.portalPassword) {
+      onToast('Sign-up email, school student email, and portal password are required.');
+      return;
+    }
+
+    setSavingProvision(true);
+    try {
+      const gross = Number(provForm.grossAnnualFeeUsd) || 0;
+      const pct = Number(provForm.governmentCoveragePercent) || 80;
+      const household = Number(provForm.householdFeeUsd) || 0;
+      const govUsd = Math.max(0, gross - household);
+      const hourly = Number(provForm.workStudyHourlyUsd) || 0;
+      const hrsDay = Number(provForm.workStudyHoursPerDay) || 0;
+      const daysWk = Number(provForm.workStudyDaysPerWeek) || 5;
+      const passwordHash = await sha256Hex(provForm.portalPassword);
+
+      const newRecord: AdminRosterEntry = {
+        portalId,
+        studentEmail: cleanEmail,
+        studentName: provForm.studentName.trim(),
+        studentIdNumber: provForm.studentIdNumber.trim(),
+        portalEmail: cleanSchoolEmail,
+        portalPasswordHash: passwordHash,
+        generatedPortalPassword: provForm.portalPassword,
+        university: provForm.university.trim(),
+        universityLocation: provForm.universityLocation.trim(),
+        course: provForm.course.trim(),
+        sponsorshipProgramme: provForm.sponsorshipProgramme.trim(),
+        grossAnnualFeeUsd: gross,
+        governmentCoveragePercent: pct,
+        governmentCoverageUsd: govUsd,
+        householdFeeUsd: household,
+        expectedArrivalDate: provForm.expectedArrivalDate.trim(),
+        intakeTerm: provForm.intakeTerm.trim(),
+        homeGuardianName: provForm.homeGuardianName.trim(),
+        homeGuardianRelation: provForm.homeGuardianRelation.trim(),
+        schoolGuardianName: provForm.schoolGuardianName.trim(),
+        schoolGuardianRole: provForm.schoolGuardianRole.trim(),
+        workStudyRole: provForm.workStudyRole.trim(),
+        workStudyLocation: provForm.workStudyLocation.trim(),
+        workStudyHourlyUsd: hourly,
+        workStudyHoursPerDay: hrsDay,
+        workStudyDaysPerWeek: daysWk,
+        enrollmentStatus: 'Pre-Arrival',
+        academicTranscript: [],
+        feesLedger: [
+          {
+            id: 'fee-gross',
+            date: 'Pre-Arrival Assessment',
+            description: `Annual Programme Tuition & Campus Fees (100% Gross — ${provForm.course.trim()})`,
+            category: 'Tuition & Fees',
+            amountUsd: gross,
+            status: 'Assessed',
+          },
+          {
+            id: 'fee-gov',
+            date: 'Expected Upon Enrollment',
+            description: `Government Sponsorship Coverage (${pct}% — Expected once studies commence)`,
+            category: 'Government Sponsorship',
+            amountUsd: -govUsd,
+            status: 'Expected',
+          },
+          {
+            id: 'fee-work',
+            date: 'Expected Weekly Upkeep',
+            description: `${provForm.workStudyLocation.trim()} ${provForm.workStudyRole.trim()} ($${hourly.toFixed(2)}/hr · ${hrsDay} hrs/day — Weekly Bank Upkeep)`,
+            category: 'Institutional Aid',
+            amountUsd: 0,
+            status: 'Expected',
+          },
+          {
+            id: 'fee-household',
+            date: 'Expected Balance (20%)',
+            description: `Expected Household Fee Contribution After ${pct}% Government Coverage`,
+            category: 'Household Payment',
+            amountUsd: household,
+            status: 'Expected',
+          },
+        ],
+        preArrivalChecklist: [
+          {
+            id: 'prep-visa',
+            title: 'Confirm Passport Validity & Student Visa Clearance',
+            category: 'Immigration',
+            dueBy: '3 weeks before arrival',
+            status: 'Pending',
+            notes: 'Keep official admission documents in carry-on luggage.',
+          },
+          {
+            id: 'prep-fee',
+            title: `Prepare $${household.toLocaleString()} USD Expected Household Fee Plan`,
+            category: 'Financial',
+            dueBy: '2 weeks before arrival',
+            status: 'Pending',
+            notes: `Remaining household balance after ${pct}% government fee coverage.`,
+          },
+          {
+            id: 'prep-arrival',
+            title: `Arrive on Campus (${provForm.expectedArrivalDate.trim()}) & Meet ${provForm.schoolGuardianName.trim()}`,
+            category: 'Campus Onboarding',
+            dueBy: provForm.expectedArrivalDate.trim(),
+            status: 'Pending',
+            notes: 'Your school guardian will assist with campus orientation and housing check-in.',
+          },
+        ],
+        studentMail: [
+          {
+            id: `mail-welcome-${Date.now()}`,
+            senderName: `${provForm.university.trim()} Admissions & Student Services`,
+            senderEmail: `admissions@${cleanSchoolEmail.split('@')[1] || 'university.edu'}`,
+            senderDepartment: 'Office of International Admissions & Arrival',
+            subject: `Official Welcome, Expected Arrival (${provForm.expectedArrivalDate.trim()}) & Mentor ${provForm.schoolGuardianName.trim()}`,
+            sentAt: new Date().toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            category: 'Admissions',
+            read: false,
+            body: `Dear ${provForm.studentName.trim()},\n\nCongratulations on your admission to ${provForm.university.trim()} for ${provForm.course.trim()} (Student ID: ${provForm.studentIdNumber.trim()}).\n\nYour school guardian ${provForm.schoolGuardianName.trim()} will welcome you on ${provForm.expectedArrivalDate.trim()}.\n\nYour work-study assignment (${provForm.workStudyRole.trim()} at $${hourly.toFixed(2)}/hr for ${hrsDay} hours/day) is your personal upkeep money, disbursed weekly to your student bank account with payout records sent via email to your guardian (${provForm.homeGuardianName.trim()}).`,
+          },
+        ],
+      };
+
+      await upsertStudentPortalAsAdmin(newRecord);
+      setFirestoreSyncedIds((prev) => (prev.includes(portalId) ? prev : [...prev, portalId]));
+      setAdminRoster((prev) => [
+        ...prev.filter((p) => p.portalId !== portalId),
+        newRecord,
+      ]);
+      setAdminError(null);
+      setShowProvisionForm(false);
+      onToast(`${newRecord.studentName}'s Student Portal saved directly to Firestore.`);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to save student portal to Firestore.');
+    } finally {
+      setSavingProvision(false);
     }
   };
 
@@ -1136,7 +1333,7 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handlePortalLogin} className="mt-6 space-y-4 max-w-lg">
+        <form onSubmit={handlePortalLogin} autoComplete="off" className="mt-6 space-y-4 max-w-lg">
           {authError && (
             <div
               role="alert"
@@ -1156,9 +1353,13 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
             </label>
             <input
               id="portal-school-email"
+              name="sw_portal_school_email"
               type="email"
               required
-              autoComplete="username"
+              autoComplete="new-password"
+              readOnly={!allowPortalInput}
+              onFocus={() => setAllowPortalInput(true)}
+              onPointerDown={() => setAllowPortalInput(true)}
               value={portalEmailInput}
               onChange={(e) => setPortalEmailInput(e.target.value)}
               placeholder="e.g. studentid@university.edu"
@@ -1176,9 +1377,13 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
             <div className="relative">
               <input
                 id="portal-password"
+                name="sw_portal_secret_code"
                 type={showPassword ? 'text' : 'password'}
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
+                readOnly={!allowPortalInput}
+                onFocus={() => setAllowPortalInput(true)}
+                onPointerDown={() => setAllowPortalInput(true)}
                 value={portalPasswordInput}
                 onChange={(e) => setPortalPasswordInput(e.target.value)}
                 placeholder="Enter your issued student portal password"
@@ -1220,7 +1425,173 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                 <span>Provisioned Student Portals ({adminRoster.length})</span>
               </h2>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowProvisionForm((prev) => !prev)}
+              className="px-3.5 py-2 rounded-md bg-[#0C2340] hover:bg-[#16365E] text-white text-[12.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              {showProvisionForm ? 'Close Form' : 'Provision Student Directly to Firestore'}
+            </button>
           </div>
+
+          {showProvisionForm && (
+            <form
+              onSubmit={handleProvisionDirectToFirestore}
+              className="border border-slate-200 rounded-lg p-5 bg-[#F4F6F9] space-y-4"
+            >
+              <div className="text-[13px] font-semibold text-[#0C2340]">
+                Write Student Portal Directly to Firestore (Works on Cloudflare Pages &amp; AI Studio)
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-[13px]">
+                <input
+                  type="email"
+                  required
+                  placeholder="Student Sign-Up Email *"
+                  value={provForm.studentEmail}
+                  onChange={(e) => setProvForm((p) => ({ ...p, studentEmail: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Full Name *"
+                  value={provForm.studentName}
+                  onChange={(e) => setProvForm((p) => ({ ...p, studentName: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Student ID (e.g. BC-2026-0806) *"
+                  value={provForm.studentIdNumber}
+                  onChange={(e) => setProvForm((p) => ({ ...p, studentIdNumber: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="email"
+                  required
+                  placeholder="Assigned School Email *"
+                  value={provForm.portalEmail}
+                  onChange={(e) => setProvForm((p) => ({ ...p, portalEmail: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Assigned Portal Password *"
+                  value={provForm.portalPassword}
+                  onChange={(e) => setProvForm((p) => ({ ...p, portalPassword: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="University Name *"
+                  value={provForm.university}
+                  onChange={(e) => setProvForm((p) => ({ ...p, university: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="University Location *"
+                  value={provForm.universityLocation}
+                  onChange={(e) => setProvForm((p) => ({ ...p, universityLocation: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Course / Programme *"
+                  value={provForm.course}
+                  onChange={(e) => setProvForm((p) => ({ ...p, course: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Expected Arrival (e.g. January 31, 2027) *"
+                  value={provForm.expectedArrivalDate}
+                  onChange={(e) => setProvForm((p) => ({ ...p, expectedArrivalDate: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="number"
+                  required
+                  placeholder="Gross Annual Fee USD *"
+                  value={provForm.grossAnnualFeeUsd}
+                  onChange={(e) => setProvForm((p) => ({ ...p, grossAnnualFeeUsd: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="number"
+                  required
+                  placeholder="Net Household Fee USD *"
+                  value={provForm.householdFeeUsd}
+                  onChange={(e) => setProvForm((p) => ({ ...p, householdFeeUsd: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Home / Legal Guardian Name *"
+                  value={provForm.homeGuardianName}
+                  onChange={(e) => setProvForm((p) => ({ ...p, homeGuardianName: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="School Guardian (Senior Student) *"
+                  value={provForm.schoolGuardianName}
+                  onChange={(e) => setProvForm((p) => ({ ...p, schoolGuardianName: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Work-Study Role (e.g. Student Librarian) *"
+                  value={provForm.workStudyRole}
+                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyRole: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Work-Study Location *"
+                  value={provForm.workStudyLocation}
+                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyLocation: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="number"
+                  required
+                  placeholder="Hourly Rate USD (e.g. 15) *"
+                  value={provForm.workStudyHourlyUsd}
+                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyHourlyUsd: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+                <input
+                  type="number"
+                  required
+                  placeholder="Hours Per Day (e.g. 4) *"
+                  value={provForm.workStudyHoursPerDay}
+                  onChange={(e) => setProvForm((p) => ({ ...p, workStudyHoursPerDay: e.target.value }))}
+                  className="h-10 px-3 rounded-md border border-slate-300 bg-white text-[#0C2340]"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingProvision}
+                  className="px-4 py-2 rounded-md bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white text-[13px] font-semibold cursor-pointer whitespace-nowrap"
+                >
+                  {savingProvision ? 'Saving to Firestore...' : 'Save & Sync Student Portal'}
+                </button>
+              </div>
+            </form>
+          )}
 
           {adminLoading && (
             <p className="text-[13.5px] text-slate-500">Loading provisioned student records...</p>
@@ -1243,7 +1614,18 @@ export const StudentPortalView: React.FC<StudentPortalViewProps> = ({
                   </h3>
                   <p className="text-[13px] text-slate-600">
                     Sign-Up Email: <strong>{entry.studentEmail}</strong> · Course: {entry.course} ·
-                    Expected Household Fee: ${entry.householdFeeUsd.toLocaleString()} USD
+                    Expected Household Fee: ${entry.householdFeeUsd.toLocaleString()} USD ·{' '}
+                    <span
+                      className={
+                        firestoreSyncedIds.includes(entry.portalId)
+                          ? 'text-emerald-700 font-semibold'
+                          : 'text-amber-700 font-semibold'
+                      }
+                    >
+                      {firestoreSyncedIds.includes(entry.portalId)
+                        ? 'Synced in Firestore'
+                        : 'Pending Firestore Sync'}
+                    </span>
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">

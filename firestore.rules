@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isVerifiedUser() && request.auth.token.email == 'mulijosephine446@gmail.com';
+      return isVerifiedUser() && request.auth.token.email.lower() == 'mulijosephine446@gmail.com';
     }
 
     function isOwner(userId) {
@@ -369,7 +369,7 @@ service cloud.firestore {
       allow get: if isAdmin()
         || (isVerifiedUser()
           && isValidId(portalId)
-          && existing().studentEmail == request.auth.token.email);
+          && existing().studentEmail.lower() == request.auth.token.email.lower());
       allow list: if isAdmin() && resource.data.studentEmail is string;
       allow create: if isAdmin()
         && isValidId(portalId)

@@ -3,6 +3,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
@@ -352,6 +353,55 @@ export async function sha256Hex(input: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+function mapStudentPortalDoc(
+  portalId: string,
+  data: Record<string, unknown>
+): StudentPortalRecord {
+  return {
+    portalId: String(data.portalId ?? portalId),
+    studentEmail: String(data.studentEmail ?? ''),
+    studentName: String(data.studentName ?? ''),
+    studentIdNumber: String(data.studentIdNumber ?? ''),
+    portalEmail: String(data.portalEmail ?? ''),
+    portalPasswordHash: String(data.portalPasswordHash ?? ''),
+    university: String(data.university ?? ''),
+    universityLocation: String(data.universityLocation ?? ''),
+    course: String(data.course ?? ''),
+    sponsorshipProgramme: String(data.sponsorshipProgramme ?? ''),
+    grossAnnualFeeUsd: Number(data.grossAnnualFeeUsd ?? 0),
+    governmentCoveragePercent: Number(data.governmentCoveragePercent ?? 0),
+    governmentCoverageUsd: Number(data.governmentCoverageUsd ?? 0),
+    householdFeeUsd: Number(data.householdFeeUsd ?? 0),
+    expectedArrivalDate: String(data.expectedArrivalDate ?? ''),
+    intakeTerm: String(data.intakeTerm ?? ''),
+    homeGuardianName: String(data.homeGuardianName ?? ''),
+    homeGuardianRelation: String(data.homeGuardianRelation ?? ''),
+    schoolGuardianName: String(data.schoolGuardianName ?? ''),
+    schoolGuardianRole: String(data.schoolGuardianRole ?? ''),
+    workStudyRole: String(data.workStudyRole ?? ''),
+    workStudyLocation: String(data.workStudyLocation ?? ''),
+    workStudyHourlyUsd: Number(data.workStudyHourlyUsd ?? 0),
+    workStudyHoursPerDay: Number(data.workStudyHoursPerDay ?? 0),
+    workStudyDaysPerWeek: Number(data.workStudyDaysPerWeek ?? 0),
+    enrollmentStatus:
+      data.enrollmentStatus === 'Enrolled' || data.enrollmentStatus === 'Active'
+        ? data.enrollmentStatus
+        : 'Pre-Arrival',
+    academicTranscript: Array.isArray(data.academicTranscript)
+      ? (data.academicTranscript as AcademicTranscriptTerm[])
+      : [],
+    feesLedger: Array.isArray(data.feesLedger)
+      ? (data.feesLedger as FeeLedgerItem[])
+      : [],
+    preArrivalChecklist: Array.isArray(data.preArrivalChecklist)
+      ? (data.preArrivalChecklist as PreArrivalItem[])
+      : [],
+    studentMail: Array.isArray(data.studentMail)
+      ? (data.studentMail as StudentMailMessage[])
+      : [],
+  };
+}
+
 export async function fetchOwnStudentPortalFromFirestore(
   studentEmail: string
 ): Promise<StudentPortalRecord | null> {
@@ -361,52 +411,21 @@ export async function fetchOwnStudentPortalFromFirestore(
   try {
     const snap = await getDoc(doc(db, 'studentPortals', portalId));
     if (!snap.exists()) return null;
-    const data = snap.data();
-    return {
-      portalId: String(data.portalId ?? portalId),
-      studentEmail: String(data.studentEmail ?? ''),
-      studentName: String(data.studentName ?? ''),
-      studentIdNumber: String(data.studentIdNumber ?? ''),
-      portalEmail: String(data.portalEmail ?? ''),
-      portalPasswordHash: String(data.portalPasswordHash ?? ''),
-      university: String(data.university ?? ''),
-      universityLocation: String(data.universityLocation ?? ''),
-      course: String(data.course ?? ''),
-      sponsorshipProgramme: String(data.sponsorshipProgramme ?? ''),
-      grossAnnualFeeUsd: Number(data.grossAnnualFeeUsd ?? 0),
-      governmentCoveragePercent: Number(data.governmentCoveragePercent ?? 0),
-      governmentCoverageUsd: Number(data.governmentCoverageUsd ?? 0),
-      householdFeeUsd: Number(data.householdFeeUsd ?? 0),
-      expectedArrivalDate: String(data.expectedArrivalDate ?? ''),
-      intakeTerm: String(data.intakeTerm ?? ''),
-      homeGuardianName: String(data.homeGuardianName ?? ''),
-      homeGuardianRelation: String(data.homeGuardianRelation ?? ''),
-      schoolGuardianName: String(data.schoolGuardianName ?? ''),
-      schoolGuardianRole: String(data.schoolGuardianRole ?? ''),
-      workStudyRole: String(data.workStudyRole ?? ''),
-      workStudyLocation: String(data.workStudyLocation ?? ''),
-      workStudyHourlyUsd: Number(data.workStudyHourlyUsd ?? 0),
-      workStudyHoursPerDay: Number(data.workStudyHoursPerDay ?? 0),
-      workStudyDaysPerWeek: Number(data.workStudyDaysPerWeek ?? 0),
-      enrollmentStatus:
-        data.enrollmentStatus === 'Enrolled' || data.enrollmentStatus === 'Active'
-          ? data.enrollmentStatus
-          : 'Pre-Arrival',
-      academicTranscript: Array.isArray(data.academicTranscript)
-        ? (data.academicTranscript as AcademicTranscriptTerm[])
-        : [],
-      feesLedger: Array.isArray(data.feesLedger)
-        ? (data.feesLedger as FeeLedgerItem[])
-        : [],
-      preArrivalChecklist: Array.isArray(data.preArrivalChecklist)
-        ? (data.preArrivalChecklist as PreArrivalItem[])
-        : [],
-      studentMail: Array.isArray(data.studentMail)
-        ? (data.studentMail as StudentMailMessage[])
-        : [],
-    };
+    return mapStudentPortalDoc(portalId, snap.data());
   } catch {
     return null;
+  }
+}
+
+export async function fetchAllStudentPortalsFromFirestoreAsAdmin(): Promise<
+  StudentPortalRecord[]
+> {
+  const path = 'studentPortals';
+  try {
+    const snap = await getDocs(collection(db, 'studentPortals'));
+    return snap.docs.map((d) => mapStudentPortalDoc(d.id, d.data()));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
   }
 }
 
